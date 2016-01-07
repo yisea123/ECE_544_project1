@@ -1,0 +1,10 @@
+
+
+OPTION psf_version = 2.1;
+
+BEGIN DRIVER PMod544IOR2
+	OPTION supported_peripherals = (PMod544IOR2);
+	OPTION copyfiles = all;
+	OPTION VERSION = 1.0;
+	OPTION NAME = PMod544IOR2;
+END DRIVER

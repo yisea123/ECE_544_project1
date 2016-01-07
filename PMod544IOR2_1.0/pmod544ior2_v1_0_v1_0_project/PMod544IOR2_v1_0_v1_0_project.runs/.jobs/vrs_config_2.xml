@@ -1,0 +1,5 @@
+<?xml version="1.0"?>
+<Runs Version="1" Minor="0">
+	<Run Id="synth_1" LaunchDir="c:/psu_projects/ece544_winter15_projects/ip/ip_repo/pmod544ior2_1.0/pmod544ior2_v1_0_v1_0_project/PMod544IOR2_v1_0_v1_0_project.runs/synth_1" FlowId="Vivado_Synthesis" FromStepId="vivado" ToStepId="vivado"/>
+</Runs>
+
