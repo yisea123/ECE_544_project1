@@ -1,0 +1,20 @@
+# .gitignore file for ECE 544 Project #1
+
+$ cat .gitignore
+
+# exclude everything in vivado directory
+# because it generates too many file changes
+# which obscure revisions to the HDL code
+
+/vivado/*
+
+# ignore everything in docs
+# these are just PDFs and Word files
+# available on D2L course website
+
+/docs/*
+
+# ignore the ip for peripherals
+# (rotary encoder & lcd display)
+
+/ip/*
