@@ -92,7 +92,12 @@ and an instance of an axi_uartlite (used for xil_printf() console output)
 #define PWM_FREQ_10HZ			10
 #define PWM_FREQ_100HZ			100
 #define PWM_FREQ_1KHZ			1000
+#define PWM_FREQ_5KHZ			5000
 #define PWM_FREQ_10KHZ			10000
+#define PWM_FREQ_50KHZ			50000
+#define PWM_FREQ_100KHZ			100000
+#define PWM_FREQ_200KHZ			200000
+#define PWM_FREQ_500KHZ			500000
 
 #define INITIAL_FREQUENCY		PWM_FREQ_1KHZ
 #define INITIAL_DUTY_CYCLE		50
@@ -192,9 +197,9 @@ int main() {
 	// display the greeting   
 
     PMDIO_LCD_setcursor(1,0);
-    PMDIO_LCD_wrstring(" PWM LIB TEST R0");
+    PMDIO_LCD_wrstring("ECE544 Project 1");
 	PMDIO_LCD_setcursor(2,0);
-	PMDIO_LCD_wrstring(" by Roy Kravitz ");
+	PMDIO_LCD_wrstring(" by Rehan Iqbal ");
 	NX4IO_setLEDs(0x0000FFFF);
 	delay_msecs(2000);
 	NX4IO_setLEDs(0x00000000);
@@ -236,10 +241,15 @@ int main() {
 				
 				switch (sw) {
 					
-					case 0x00:	pwm_freq = PWM_FREQ_10HZ;	break;
-					case 0x01:	pwm_freq = PWM_FREQ_100HZ;	break;
-					case 0x02:	pwm_freq = PWM_FREQ_1KHZ;	break;
+					case 0x00:	pwm_freq = PWM_FREQ_100HZ;	break;
+					case 0x01:	pwm_freq = PWM_FREQ_1KHZ;	break;
+					case 0x02:	pwm_freq = PWM_FREQ_5KHZ;	break;
 					case 0x03:	pwm_freq = PWM_FREQ_10KHZ;	break;
+					case 0x04:	pwm_freq = PWM_FREQ_50KHZ;	break;
+					case 0x05:	pwm_freq = PWM_FREQ_100KHZ;	break;
+					case 0x06:	pwm_freq = PWM_FREQ_200KHZ;	break;
+					case 0x07:	pwm_freq = PWM_FREQ_500KHZ;	break;
+
 				}
 				
 				oldSw = sw;
@@ -303,13 +313,22 @@ int main() {
 	// we're done,  say goodbye
 
 	xil_printf("\nThat's All Folks!\n\n");
-	PMDIO_LCD_wrstring("That's All Folks");
-
+	
+	PMDIO_LCD_setcursor(1,0);
+    PMDIO_LCD_wrstring("That's All Folks");
+	PMDIO_LCD_setcursor(2,0);
+	PMDIO_LCD_wrstring("                ");
+	
 	NX410_SSEG_setAllDigits(SSEGHI, CC_BLANK, CC_B, CC_LCY, CC_E, DP_NONE);
 	NX410_SSEG_setAllDigits(SSEGLO, CC_B, CC_LCY, CC_E, CC_BLANK, DP_NONE);
 
 	delay_msecs(5000);
+
 	PMDIO_LCD_clrd();
+	NX410_SSEG_setAllDigits(SSEGHI, CC_BLANK, CC_BLANK, CC_BLANK, CC_BLANK, DP_NONE);
+	NX410_SSEG_setAllDigits(SSEGLO, CC_BLANK, CC_BLANK, CC_BLANK, CC_BLANK, DP_NONE);
+	NX4IO_RGBLED_setChnlEn(RGB1, false, false, false);
+
 	cleanup_platform();
 
 	exit(0);
@@ -513,7 +532,7 @@ linenum is the line (1 or 2) in the display to update
 void update_lcd(int freq, int dutycycle, u32 linenum) {
 
 	PMDIO_LCD_setcursor(linenum, 5);
-	PMDIO_LCD_wrstring("   ");
+	PMDIO_LCD_wrstring("    ");
 	PMDIO_LCD_setcursor(linenum, 5);
 
 	if (freq < 1000) {							// display Hz if frequency < 1Khz
