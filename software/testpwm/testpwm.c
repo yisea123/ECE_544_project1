@@ -69,9 +69,13 @@ and an instance of an axi_uartlite (used for xil_printf() console output)
 
 // GPIO parameters
 
-#define GPIO_DEVICE_ID			XPAR_AXI_GPIO_0_DEVICE_ID
-#define GPIO_INPUT_CHANNEL		1
-#define GPIO_OUTPUT_CHANNEL		2									
+#define GPIO_0_DEVICE_ID		XPAR_AXI_GPIO_0_DEVICE_ID
+#define GPIO_0_INPUT_CHANNEL	1
+#define GPIO_0_OUTPUT_CHANNEL	2
+
+#define GPIO_1_DEVICE_ID		XPAR_AXI_GPIO_1_DEVICE_ID
+#define GPIO_1_HIGH_COUNT		1
+#define GPIO_1_LOW_COUNT		2									
 		
 // Interrupt Controller parameters
 
@@ -122,7 +126,8 @@ and an instance of an axi_uartlite (used for xil_printf() console output)
 
 XIntc 	IntrptCtlrInst;						// Interrupt Controller instance
 XTmrCtr	PWMTimerInst;						// PWM timer instance
-XGpio	GPIOInst;							// GPIO instance
+XGpio	GPIOInst0;							// GPIO instance - used for PWM duty & AXI Timer
+XGpio	GPIOInst1;							// GPIO instance 1 - used by hw_detect
 
 // The following variables are shared between non-interrupt processing and
 // interrupt processing such that they must be global(and declared volatile)
@@ -369,19 +374,32 @@ int do_init(void) {
 	PMDIO_ROT_clear();
 	
 	
-	// initialize the GPIO instance
+	// initialize the GPIO instances
 
-	status = XGpio_Initialize(&GPIOInst, GPIO_DEVICE_ID);
+	status = XGpio_Initialize(&GPIOInst0, GPIO_0_DEVICE_ID);
 	
 	if (status != XST_SUCCESS) {
 		return XST_FAILURE;
 	}
 
-	// GPIO channel 1 is an 8-bit input port.  bit[7:1] = reserved, bit[0] = PWM output (for duty cycle calculation)
-	// GPIO channel 2 is an 8-bit output port.  bit[7:1] = reserved, bit[0] = FIT clock
+	status = XGpio_Initialize(&GPIOInst1, GPIO_1_DEVICE_ID);
 	
-	XGpio_SetDataDirection(&GPIOInst, GPIO_OUTPUT_CHANNEL, 0xFE);
-			
+	if (status != XST_SUCCESS) {
+		return XST_FAILURE;
+	}
+
+	// GPIO_0 channel 1 is an 8-bit input port.  bit[7:1] = reserved, bit[0] = PWM output (for duty cycle calculation)
+	// GPIO_0 channel 2 is an 8-bit output port.  bit[7:1] = reserved, bit[0] = FIT clock
+
+	XGpio_SetDataDirection(&GPIOInst0, GPIO_0_INPUT_CHANNEL, 0xFF);
+	XGpio_SetDataDirection(&GPIOInst0, GPIO_0_OUTPUT_CHANNEL, 0xFE);
+
+	// GPIO_1 channel 1 is a 32-bit input port - used to pass hw_detect 'high' count to application
+	// GPIO_1 channel 2 is an 8-bit output port - used to pass hw_detect 'low' count to application
+	
+	XGpio_SetDataDirection(&GPIOInst1, GPIO_1_HIGH_COUNT, 0xFFFFFFFF);
+	XGpio_SetDataDirection(&GPIOInst1, GPIO_1_LOW_COUNT, 0xFFFFFFFF);
+
 	// initialize the PWM timer/counter instance but do not start it
 	// do not enable PWM interrupts.  Clock frequency is the AXI clock frequency
 	
@@ -523,7 +541,7 @@ line of the display is the same.
 
 freq is the  PWM frequency to be displayed
 
-dutycycle is the PM duty cycle to be displayed
+dutycycle is the PWM duty cycle to be displayed
 
 linenum is the line (1 or 2) in the display to update
 
@@ -570,7 +588,7 @@ void FIT_Handler(void) {
 	// toggle FIT clock
 
 	clkfit ^= 0x01;
-	XGpio_DiscreteWrite(&GPIOInst, GPIO_OUTPUT_CHANNEL, clkfit);	
+	XGpio_DiscreteWrite(&GPIOInst0, GPIO_0_OUTPUT_CHANNEL, clkfit);	
 
 	// update timestamp	
 
@@ -587,9 +605,11 @@ void FIT_Handler(void) {
 	// Note that this won't work well as the PWM frequency approaches
 	// or exceeds 10KHz
 
-	gpio_in = XGpio_DiscreteRead(&GPIOInst, GPIO_INPUT_CHANNEL);
+	gpio_in = XGpio_DiscreteRead(&GPIOInst0, GPIO_0_INPUT_CHANNEL);
+
 
 	if (gpio_in & 0x00000001) {
+
 		NX4IO_RGBLED_setChnlEn(RGB1, true, true, true);
 	} 
 
