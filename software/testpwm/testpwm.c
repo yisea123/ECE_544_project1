@@ -158,11 +158,11 @@ int						debugen = 0;		// debug level/flag
 
 int				do_init(void);											// initialize system
 void			delay_msecs(unsigned int msecs);						// busy-wait delay for "msecs" miliseconds
-void			voltstostrng(float v, char* s);							// converts volts to a string
 void			update_lcd(int freq, int dutycycle, u32 linenum);		// update LCD display
 				
 void			FIT_Handler(void);										// fixed interval timer interrupt handler
-unsigned int 	calc_freq(unsigned int high, unsigned int low); 		// calculates frequency from high/low counts
+unsigned int 	calc_freq(unsigned int high, unsigned int low); 		// calculates frequency from high & low counts
+unsigned int	calc_duty(unsigned int high, unsigned int low);			// calculates duty cycle from high & low counts
 
 
 /************************** MAIN PROGRAM ************************************/
@@ -173,7 +173,6 @@ int main() {
 	u16				sw, oldSw =0xFFFF;				// 0xFFFF is invalid --> makes sure the PWM freq is updated 1st time
 	int				rotcnt, oldRotcnt = 0x1000;	
 	bool			done = false;
-	unsigned int 	detect_freq = 0x00;
 	
 	init_platform();
 
@@ -288,9 +287,11 @@ int main() {
 			
 			if (new_perduty) {
 				
-				u32 freq, dutycycle;
-				float vavg;
-				char  s[10];
+				u32 			freq, 
+								dutycycle;
+
+				unsigned int 	detect_freq = 0x00;
+				unsigned int 	detect_duty = 0x00;
 			
 				// set the new PWM parameters - PWM_SetParams stops the timer
 				
@@ -299,16 +300,13 @@ int main() {
 				if (status == XST_SUCCESS) {
 					
 					PWM_GetParams(&PWMTimerInst, &freq, &dutycycle);
+
 					update_lcd(freq, dutycycle, 1);
-					
-					// vavg = dutycycle * .01 * 3.3;
-					
-					// voltstostrng(vavg, s);
-					// PMDIO_LCD_setcursor(2,5);
-					// PMDIO_LCD_wrstring(s); 
 
 					detect_freq = calc_freq(high_count, low_count);
-					update_lcd(detect_freq, dutycycle, 2);
+					detect_duty = calc_duty(high_count, low_count);
+
+					update_lcd(detect_freq, detect_duty, 2);
 										
 					PWM_Start(&PWMTimerInst);
 				}
@@ -341,9 +339,8 @@ int main() {
 	NX410_SSEG_setAllDigits(SSEGHI, CC_BLANK, CC_BLANK, CC_BLANK, CC_BLANK, DP_NONE);
 	NX410_SSEG_setAllDigits(SSEGLO, CC_BLANK, CC_BLANK, CC_BLANK, CC_BLANK, DP_NONE);
 
-
-	NX4IO_RGBLED_setChnlEn(RGB1, false, false, false);
 	NX4IO_RGBLED_setDutyCycle(RGB1, 0, 0, 0);
+	NX4IO_RGBLED_setChnlEn(RGB1, false, false, false);
 
 	cleanup_platform();
 
@@ -490,57 +487,6 @@ void delay_msecs(unsigned int msecs) {
 		// spin until delay is over
 	}
 }
-
-/****************************************************************************/
-
-/* voltstostrng - converts volts to a fixed format string
- 
-accepts an float voltage reading and turns it into a 5 character string
-of the following format:
-
-	(+/-)x.yy 
- 
-where (+/-) is the sign, x is the integer part of the voltage and yy is
-the decimal part of the voltage.
-
-'v' is the voltage to convert; 's' is a pointer to the buffer receiving the converted string
-	
-Assumes that s points to an array of at least 6 bytes. No error checking is done
-
-*/
-
-void voltstostrng(float v, char* s) {
-
-	float	dpf, ipf;
-	u32		dpi;	
-	u32		ones, tenths, hundredths;
-
-	// form the fixed digits 
-
-	dpf = modff(v, &ipf);
-	dpi = dpf * 100;
-	ones = abs(ipf) + '0';
-	tenths = (dpi / 10) + '0';
-	hundredths = (dpi - ((tenths - '0') * 10)) + '0';
-	 
-	// form the string and return
-
-	if (ipf == 0 && dpf == 0) {
-		*s++ = ' ';
-	}
-
-	else { 
-		*s++ = ipf >= 0 ? '+' : '-';
-	}
-
-	*s++ = (char) ones;
-	*s++ = '.';
-	*s++ = (char) tenths;
-	*s++ = (char) hundredths;
-	*s   = 0;
-
-	return;
-};
  
 /****************************************************************************/
 
@@ -595,7 +541,7 @@ Project 1 this could be a reasonable place to do that processing.
 void FIT_Handler(void) {
 		
 	static	int			ts_interval = 0;			// interval counter for incrementing timestamp
-	static 	int 		debug_count = 0; 			// counter used for debugging GPIO read
+	static 	int 		debug_count = 0; 			// counter used for debugging GPIO read 		
 
 	// toggle FIT clock
 
@@ -632,17 +578,19 @@ void FIT_Handler(void) {
 
 	// update global variables for high & low count by reading GPIO
 
-	debug_count++;
-
 	high_count = XGpio_DiscreteRead(&GPIOInst1, GPIO_1_HIGH_COUNT);
 	low_count  = XGpio_DiscreteRead(&GPIOInst1, GPIO_1_LOW_COUNT);
+
+/*	debugging counts through terminal statements every ~ 3 sec:
+
+	debug_count++;
 
 	if (debug_count == 120000) {
 
 		xil_printf("high count: %d \n", high_count);
 		xil_printf("low count: %d \n\n", low_count);
 		debug_count = 0;
-	}
+	}*/
 
 }
 
@@ -659,5 +607,23 @@ unsigned int calc_freq(unsigned int high, unsigned int low) {
 
 	sum = (high + 1) + (low + 1);
 	frq = (CPU_CLOCK_FREQ_HZ / sum);
+
 	return frq;
+};
+
+/****************************************************************************/
+
+/* calc_duty - calculates duty cycle given counts for high & low intervals
+ 
+*/
+
+unsigned int calc_duty(unsigned int high, unsigned int low) {
+
+	unsigned int sum;
+	unsigned int duty;
+
+	sum = (high + 1) + (low + 1);
+	duty = (100 * (high + 1)) / sum;
+
+	return duty;
 };
