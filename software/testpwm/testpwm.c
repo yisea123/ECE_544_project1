@@ -156,21 +156,24 @@ int						debugen = 0;		// debug level/flag
 
 /************************** Function Prototypes ******************************/
 
-int		do_init(void);											// initialize system
-void	delay_msecs(unsigned int msecs);						// busy-wait delay for "msecs" miliseconds
-void	voltstostrng(float v, char* s);							// converts volts to a string
-void	update_lcd(int freq, int dutyccyle, u32 linenum);		// update LCD display
+int				do_init(void);											// initialize system
+void			delay_msecs(unsigned int msecs);						// busy-wait delay for "msecs" miliseconds
+void			voltstostrng(float v, char* s);							// converts volts to a string
+void			update_lcd(int freq, int dutycycle, u32 linenum);		// update LCD display
 				
-void	FIT_Handler(void);										// fixed interval timer interrupt handler
+void			FIT_Handler(void);										// fixed interval timer interrupt handler
+unsigned int 	calc_freq(unsigned int high, unsigned int low); 		// calculates frequency from high/low counts
+
 
 /************************** MAIN PROGRAM ************************************/
 
 int main() {
 
-	XStatus 	status;
-	u16			sw, oldSw =0xFFFF;		// 0xFFFF is invalid - makes sure the PWM freq is updated the first time
-	int			rotcnt, oldRotcnt = 0x1000;	
-	bool		done = false;
+	XStatus 		status;
+	u16				sw, oldSw =0xFFFF;				// 0xFFFF is invalid --> makes sure the PWM freq is updated 1st time
+	int				rotcnt, oldRotcnt = 0x1000;	
+	bool			done = false;
+	unsigned int 	detect_freq = 0x00;
 	
 	init_platform();
 
@@ -217,7 +220,7 @@ int main() {
     PMDIO_LCD_setcursor(1,0);
     PMDIO_LCD_wrstring("G|FR:    DCY:  %");
     PMDIO_LCD_setcursor(2,0);
-    PMDIO_LCD_wrstring("Vavg:           ");
+    PMDIO_LCD_wrstring("D|FR:    DCY:  %");
 
     // turn off the LEDs and clear the seven segment display
 
@@ -298,11 +301,14 @@ int main() {
 					PWM_GetParams(&PWMTimerInst, &freq, &dutycycle);
 					update_lcd(freq, dutycycle, 1);
 					
-					vavg = dutycycle * .01 * 3.3;
+					// vavg = dutycycle * .01 * 3.3;
 					
-					voltstostrng(vavg, s);
-					PMDIO_LCD_setcursor(2,5);
-					PMDIO_LCD_wrstring(s); 
+					// voltstostrng(vavg, s);
+					// PMDIO_LCD_setcursor(2,5);
+					// PMDIO_LCD_wrstring(s); 
+
+					detect_freq = calc_freq(high_count, low_count);
+					update_lcd(detect_freq, dutycycle, 2);
 										
 					PWM_Start(&PWMTimerInst);
 				}
@@ -632,10 +638,26 @@ void FIT_Handler(void) {
 	low_count  = XGpio_DiscreteRead(&GPIOInst1, GPIO_1_LOW_COUNT);
 
 	if (debug_count == 120000) {
-		
+
 		xil_printf("high count: %d \n", high_count);
 		xil_printf("low count: %d \n\n", low_count);
 		debug_count = 0;
 	}
 
 }
+
+/****************************************************************************/
+
+/* calc_freq - calculates frequency given counts for high & low intervals
+ 
+*/
+
+unsigned int calc_freq(unsigned int high, unsigned int low) {
+
+	unsigned int sum;
+	unsigned int frq;
+
+	sum = (high + 1) + (low + 1);
+	frq = (CPU_CLOCK_FREQ_HZ / sum);
+	return frq;
+};
