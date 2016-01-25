@@ -139,6 +139,8 @@ volatile unsigned int	clkfit;				// clock signal is bit[0] (rightmost) of gpio 0
 volatile unsigned long	timestamp;			// timestamp since the program began
 
 volatile u32			gpio_in;			// GPIO input port
+volatile unsigned int	high_count;			// high count from hw_detect on GPIO 1 (Channel 1)
+volatile unsigned int	low_count; 			// low count from hw_detect on GPIO 1 (Channel 2)
 
 // The following variables are shared between the functions in the program
 // such that they must be global
@@ -332,7 +334,10 @@ int main() {
 	PMDIO_LCD_clrd();
 	NX410_SSEG_setAllDigits(SSEGHI, CC_BLANK, CC_BLANK, CC_BLANK, CC_BLANK, DP_NONE);
 	NX410_SSEG_setAllDigits(SSEGLO, CC_BLANK, CC_BLANK, CC_BLANK, CC_BLANK, DP_NONE);
+
+
 	NX4IO_RGBLED_setChnlEn(RGB1, false, false, false);
+	NX4IO_RGBLED_setDutyCycle(RGB1, 0, 0, 0);
 
 	cleanup_platform();
 
@@ -584,6 +589,7 @@ Project 1 this could be a reasonable place to do that processing.
 void FIT_Handler(void) {
 		
 	static	int			ts_interval = 0;			// interval counter for incrementing timestamp
+	static 	int 		debug_count = 0; 			// counter used for debugging GPIO read
 
 	// toggle FIT clock
 
@@ -614,7 +620,22 @@ void FIT_Handler(void) {
 	} 
 
 	else {
+
 		NX4IO_RGBLED_setChnlEn(RGB1, false, false, false);
+	}
+
+	// update global variables for high & low count by reading GPIO
+
+	debug_count++;
+
+	high_count = XGpio_DiscreteRead(&GPIOInst1, GPIO_1_HIGH_COUNT);
+	low_count  = XGpio_DiscreteRead(&GPIOInst1, GPIO_1_LOW_COUNT);
+
+	if (debug_count == 120000) {
+		
+		xil_printf("high count: %d \n", high_count);
+		xil_printf("low count: %d \n\n", low_count);
+		debug_count = 0;
 	}
 
 }
