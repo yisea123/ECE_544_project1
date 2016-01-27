@@ -178,17 +178,17 @@ int main() {
 
 	// initialize devices and set up interrupts, etc.
 
- 	status = do_init();
- 	
- 	if (status != XST_SUCCESS) 	{
+	status = do_init();
+	
+	if (status != XST_SUCCESS) 	{
 
- 		PMDIO_LCD_setcursor(1,0);
- 		PMDIO_LCD_wrstring("****** ERROR *******");
- 		PMDIO_LCD_setcursor(2,0);
- 		PMDIO_LCD_wrstring("INIT FAILED- EXITING");
- 		exit(XST_FAILURE);
- 	}
- 	
+		PMDIO_LCD_setcursor(1,0);
+		PMDIO_LCD_wrstring("****** ERROR *******");
+		PMDIO_LCD_setcursor(2,0);
+		PMDIO_LCD_wrstring("INIT FAILED- EXITING");
+		exit(XST_FAILURE);
+	}
+	
 	// initialize the global variables
 
 	timestamp = 0;							
@@ -196,17 +196,17 @@ int main() {
 	pwm_duty = INITIAL_DUTY_CYCLE;
 	clkfit = 0;
 	new_perduty = false;
-    
+	
 	// start the PWM timer and kick of the processing by enabling the Microblaze interrupt
 
 	PWM_SetParams(&PWMTimerInst, pwm_freq, pwm_duty);	
 	PWM_Start(&PWMTimerInst);
-    microblaze_enable_interrupts();
-    
+	microblaze_enable_interrupts();
+	
 	// display the greeting   
 
-    PMDIO_LCD_setcursor(1,0);
-    PMDIO_LCD_wrstring("ECE544 Project 1");
+	PMDIO_LCD_setcursor(1,0);
+	PMDIO_LCD_wrstring("ECE544 Project 1");
 	PMDIO_LCD_setcursor(2,0);
 	PMDIO_LCD_wrstring(" by Rehan Iqbal ");
 	NX4IO_setLEDs(0x0000FFFF);
@@ -215,19 +215,19 @@ int main() {
 		
    // write the static text to the display
 
-    PMDIO_LCD_clrd();
-    PMDIO_LCD_setcursor(1,0);
-    PMDIO_LCD_wrstring("G|FR:    DCY:  %");
-    PMDIO_LCD_setcursor(2,0);
-    PMDIO_LCD_wrstring("D|FR:    DCY:  %");
+	PMDIO_LCD_clrd();
+	PMDIO_LCD_setcursor(1,0);
+	PMDIO_LCD_wrstring("G|FR:    DCY:  %");
+	PMDIO_LCD_setcursor(2,0);
+	PMDIO_LCD_wrstring("D|FR:    DCY:  %");
 
-    // turn off the LEDs and clear the seven segment display
+	// turn off the LEDs and clear the seven segment display
 
-    NX4IO_setLEDs(0x00000000);
-    NX410_SSEG_setAllDigits(SSEGLO, CC_BLANK, CC_BLANK, CC_BLANK, CC_BLANK, DP_NONE);
-    NX410_SSEG_setAllDigits(SSEGHI, CC_BLANK, CC_BLANK, CC_BLANK, CC_BLANK, DP_NONE);
-      
-    // main loop
+	NX4IO_setLEDs(0x00000000);
+	NX410_SSEG_setAllDigits(SSEGLO, CC_BLANK, CC_BLANK, CC_BLANK, CC_BLANK, DP_NONE);
+	NX410_SSEG_setAllDigits(SSEGHI, CC_BLANK, CC_BLANK, CC_BLANK, CC_BLANK, DP_NONE);
+	  
+	// main loop
 
 	do	{ 
 		
@@ -326,7 +326,7 @@ int main() {
 	xil_printf("\nThat's All Folks!\n\n");
 	
 	PMDIO_LCD_setcursor(1,0);
-    PMDIO_LCD_wrstring("That's All Folks");
+	PMDIO_LCD_wrstring("That's All Folks");
 	PMDIO_LCD_setcursor(2,0);
 	PMDIO_LCD_wrstring("                ");
 	
@@ -362,8 +362,8 @@ int do_init(void) {
 	
 	// initialize the Nexys4IO and Pmod544IO hardware and drivers
 	// rotary encoder is set to increment from 0 by DUTY_CYCLE_CHANGE 
- 	
- 	status = NX4IO_initialize(NX4IO_BASEADDR);
+	
+	status = NX4IO_initialize(NX4IO_BASEADDR);
 
 	if (status != XST_SUCCESS) {
 		return XST_FAILURE;
@@ -378,7 +378,7 @@ int do_init(void) {
 	// successful initialization.  Set the rotary encoder
 	// to increment from 0 by DUTY_CYCLE_CHANGE counts per rotation
 
- 	PMDIO_ROT_init(DUTY_CYCLE_CHANGE, true);
+	PMDIO_ROT_init(DUTY_CYCLE_CHANGE, true);
 	PMDIO_ROT_clear();
 	
 	
@@ -420,37 +420,37 @@ int do_init(void) {
 	// initialize the interrupt controller
 	
 	status = XIntc_Initialize(&IntrptCtlrInst, INTC_DEVICE_ID);
-    
-    if (status != XST_SUCCESS) {
-       return XST_FAILURE;
-    }
+	
+	if (status != XST_SUCCESS) {
+	   return XST_FAILURE;
+	}
 
 	// connect the fixed interval timer (FIT) handler to the interrupt
-    
-    status = XIntc_Connect(&IntrptCtlrInst, FIT_INTERRUPT_ID, (XInterruptHandler)FIT_Handler, (void *)0);
+	
+	status = XIntc_Connect(&IntrptCtlrInst, FIT_INTERRUPT_ID, (XInterruptHandler)FIT_Handler, (void *)0);
 
-    if (status != XST_SUCCESS) {
-        return XST_FAILURE;
-    }
+	if (status != XST_SUCCESS) {
+		return XST_FAILURE;
+	}
  
 	// start the interrupt controller such that interrupts are enabled for
 	// all devices that cause interrupts
 
-    status = XIntc_Start(&IntrptCtlrInst, XIN_REAL_MODE);
-    
-    if (status != XST_SUCCESS) {
-        return XST_FAILURE;
-    }
+	status = XIntc_Start(&IntrptCtlrInst, XIN_REAL_MODE);
+	
+	if (status != XST_SUCCESS) {
+		return XST_FAILURE;
+	}
 
 	// enable the FIT interrupt
 
-    XIntc_Enable(&IntrptCtlrInst, FIT_INTERRUPT_ID);
+	XIntc_Enable(&IntrptCtlrInst, FIT_INTERRUPT_ID);
 
-    // set the duty cycles for RGB1.  The channels will be enabled/disabled
-    // in the FIT interrupt handler.  Red and Blue make purple
+	// set the duty cycles for RGB1.  The channels will be enabled/disabled
+	// in the FIT interrupt handler.  Red and Blue make purple
 
-    NX4IO_RGBLED_setDutyCycle(RGB1, 64, 0, 64);
-    NX4IO_RGBLED_setChnlEn(RGB1, false, false, false);
+	NX4IO_RGBLED_setDutyCycle(RGB1, 64, 0, 64);
+	NX4IO_RGBLED_setChnlEn(RGB1, false, false, false);
 
 	return XST_SUCCESS;
 }
