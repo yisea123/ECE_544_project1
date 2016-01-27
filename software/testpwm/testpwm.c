@@ -288,7 +288,7 @@ int main() {
 
 				// change the duty cycle
 				
-				pwm_duty = MAX(0, MIN(rotcnt, 99));
+				pwm_duty = MAX(1, MIN(rotcnt, 99));
 				oldRotcnt = rotcnt;
 				new_perduty = true;
 			}
@@ -645,8 +645,8 @@ void FIT_Handler(void) {
 
 	if (debug_count == 120000) {
 
-		xil_printf("high count: %d \n", sw_high_count);
-		xil_printf("low count: %d \n\n", sw_low_count);
+		xil_printf("sw high count: %d \n", sw_high_count);
+		xil_printf("sw low count: %d \n\n", sw_low_count);
 		debug_count = 0;
 	}*/
 }
