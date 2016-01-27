@@ -102,6 +102,10 @@ and an instance of an axi_uartlite (used for xil_printf() console output)
 #define PWM_FREQ_100KHZ			100000
 #define PWM_FREQ_200KHZ			200000
 #define PWM_FREQ_500KHZ			500000
+#define PWM_FREQ_1MHZ			1000000
+#define PWM_FREQ_2MHZ			2000000
+#define PWM_FREQ_5MHZ			5000000
+#define PWM_FREQ_10MHZ			10000000
 
 #define INITIAL_FREQUENCY		PWM_FREQ_1KHZ
 #define INITIAL_DUTY_CYCLE		50
@@ -256,12 +260,12 @@ int main() {
 					
 					case 0x00:	pwm_freq = PWM_FREQ_100HZ;	break;
 					case 0x01:	pwm_freq = PWM_FREQ_1KHZ;	break;
-					case 0x02:	pwm_freq = PWM_FREQ_5KHZ;	break;
-					case 0x03:	pwm_freq = PWM_FREQ_10KHZ;	break;
-					case 0x04:	pwm_freq = PWM_FREQ_50KHZ;	break;
-					case 0x05:	pwm_freq = PWM_FREQ_100KHZ;	break;
-					case 0x06:	pwm_freq = PWM_FREQ_200KHZ;	break;
-					case 0x07:	pwm_freq = PWM_FREQ_500KHZ;	break;
+					case 0x02:	pwm_freq = PWM_FREQ_10KHZ;	break;
+					case 0x03:	pwm_freq = PWM_FREQ_50KHZ;	break;
+					case 0x04:	pwm_freq = PWM_FREQ_100KHZ;	break;
+					case 0x05:	pwm_freq = PWM_FREQ_500KHZ;	break;
+					case 0x06:	pwm_freq = PWM_FREQ_1MHZ;	break;
+					case 0x07:	pwm_freq = PWM_FREQ_5MHZ;	break;
 
 				}
 				
@@ -530,9 +534,14 @@ void update_lcd(int freq, int dutycycle, u32 linenum) {
 		PMDIO_LCD_putnum(freq, 10);
 	}
 
-	else {										// display frequency in KHz
+	else if (freq < 1000000) {										// display frequency in KHz
 		PMDIO_LCD_putnum((freq / 1000), 10);
 		PMDIO_LCD_wrstring("K");
+	}
+
+	else {
+		PMDIO_LCD_putnum((freq / 1000000), 10);
+		PMDIO_LCD_wrstring("M");
 	}
 
 	PMDIO_LCD_setcursor(linenum, 13);
