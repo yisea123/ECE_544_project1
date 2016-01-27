@@ -135,12 +135,15 @@ XGpio	GPIOInst1;							// GPIO instance 1 - used by hw_detect
 // "clkfit" toggles each time the FIT interrupt handler is called so its frequency will
 // be 1/2 FIT_CLOCK_FREQ_HZ.  timestamp increments every 1msec and is used in delay_msecs()
 
-volatile unsigned int	clkfit;				// clock signal is bit[0] (rightmost) of gpio 0 output port									
-volatile unsigned long	timestamp;			// timestamp since the program began
+volatile unsigned int	clkfit;					// clock signal is bit[0] (rightmost) of gpio 0 output port									
+volatile unsigned long	timestamp;				// timestamp since the program began
 
-volatile u32			gpio_in;			// GPIO input port
-volatile unsigned int	high_count;			// high count from hw_detect on GPIO 1 (Channel 1)
-volatile unsigned int	low_count; 			// low count from hw_detect on GPIO 1 (Channel 2)
+volatile u32			gpio_in;				// GPIO input port
+volatile unsigned int	hw_high_count;			// high count from hw_detect on GPIO 1 (Channel 1)
+volatile unsigned int	hw_low_count; 			// low count from hw_detect on GPIO 1 (Channel 2)
+
+unsigned  int 			sw_high_count = 0;		// high count from sw detect in FIT interrupt routine	
+unsigned  int 			sw_low_count = 0; 		// low count for sw detect in FIT interrupt routine
 
 // The following variables are shared between the functions in the program
 // such that they must be global
@@ -156,13 +159,13 @@ int						debugen = 0;		// debug level/flag
 
 /************************** Function Prototypes ******************************/
 
-int				do_init(void);											// initialize system
-void			delay_msecs(unsigned int msecs);						// busy-wait delay for "msecs" miliseconds
-void			update_lcd(int freq, int dutycycle, u32 linenum);		// update LCD display
+int				do_init(void);															// initialize system
+void			delay_msecs(unsigned int msecs);										// busy-wait delay for "msecs" miliseconds
+void			update_lcd(int freq, int dutycycle, u32 linenum);						// update LCD display
 				
-void			FIT_Handler(void);										// fixed interval timer interrupt handler
-unsigned int 	calc_freq(unsigned int high, unsigned int low); 		// calculates frequency from high & low counts
-unsigned int	calc_duty(unsigned int high, unsigned int low);			// calculates duty cycle from high & low counts
+void			FIT_Handler(void);														// fixed interval timer interrupt handler
+unsigned int 	calc_freq(unsigned int high, unsigned int low, bool hw_switch); 		// calculates frequency from high & low counts
+unsigned int	calc_duty(unsigned int high, unsigned int low);							// calculates duty cycle from high & low counts
 
 
 /************************** MAIN PROGRAM ************************************/
@@ -173,6 +176,7 @@ int main() {
 	u16				sw, oldSw =0xFFFF;				// 0xFFFF is invalid --> makes sure the PWM freq is updated 1st time
 	int				rotcnt, oldRotcnt = 0x1000;	
 	bool			done = false;
+	bool 			hw_switch = 0;
 	
 	init_platform();
 
@@ -248,7 +252,7 @@ int main() {
 			
 			if (sw != oldSw) {	 
 				
-				switch (sw) {
+				switch (sw & 0x07) {
 					
 					case 0x00:	pwm_freq = PWM_FREQ_100HZ;	break;
 					case 0x01:	pwm_freq = PWM_FREQ_1KHZ;	break;
@@ -261,6 +265,8 @@ int main() {
 
 				}
 				
+				hw_switch = (sw & 0x08);
+
 				oldSw = sw;
 				new_perduty = true;
 			}
@@ -303,8 +309,18 @@ int main() {
 
 					update_lcd(freq, dutycycle, 1);
 
-					detect_freq = calc_freq(high_count, low_count);
-					detect_duty = calc_duty(high_count, low_count);
+					if (hw_switch) {
+
+						detect_freq = calc_freq(hw_high_count, hw_low_count, hw_switch);
+						detect_duty = calc_duty(hw_high_count, hw_low_count);
+					}
+
+					else {
+
+						detect_freq = calc_freq(sw_high_count, sw_low_count, hw_switch);
+						detect_duty = calc_duty(sw_high_count, sw_low_count);
+					}
+
 
 					update_lcd(detect_freq, detect_duty, 2);
 										
@@ -540,8 +556,13 @@ Project 1 this could be a reasonable place to do that processing.
 
 void FIT_Handler(void) {
 		
-	static	int			ts_interval = 0;			// interval counter for incrementing timestamp
-	static 	int 		debug_count = 0; 			// counter used for debugging GPIO read 		
+	static	unsigned int	ts_interval = 0;			// interval counter for incrementing timestamp
+	static 	unsigned int	debug_count = 0; 			// counter used for debugging GPIO read
+
+	static 	unsigned int	count = 0;					// used for sw counting high & low intervals
+
+	static 	bool		 	prev_pwm = 0;
+	static 	bool		 	curr_pwm = 0;
 
 	// toggle FIT clock
 
@@ -564,9 +585,9 @@ void FIT_Handler(void) {
 	// or exceeds 10KHz
 
 	gpio_in = XGpio_DiscreteRead(&GPIOInst0, GPIO_0_INPUT_CHANNEL);
+	curr_pwm = (gpio_in & 0x00000001);
 
-
-	if (gpio_in & 0x00000001) {
+	if (curr_pwm) {
 
 		NX4IO_RGBLED_setChnlEn(RGB1, true, true, true);
 	} 
@@ -576,22 +597,49 @@ void FIT_Handler(void) {
 		NX4IO_RGBLED_setChnlEn(RGB1, false, false, false);
 	}
 
-	// update global variables for high & low count by reading GPIO
+	// update hardware high & low counts by reading GPIO
 
-	high_count = XGpio_DiscreteRead(&GPIOInst1, GPIO_1_HIGH_COUNT);
-	low_count  = XGpio_DiscreteRead(&GPIOInst1, GPIO_1_LOW_COUNT);
+	hw_high_count = XGpio_DiscreteRead(&GPIOInst1, GPIO_1_HIGH_COUNT);
+	hw_low_count  = XGpio_DiscreteRead(&GPIOInst1, GPIO_1_LOW_COUNT);
 
-/*	debugging counts through terminal statements every ~ 3 sec:
+	// update the software high & low counts through state machine
 
-	debug_count++;
+	if (curr_pwm) {
+
+		if (curr_pwm != prev_pwm) {
+			sw_low_count = count;
+			prev_pwm = curr_pwm;
+			count = 0;
+		}
+
+		else {
+			count += 1;
+		}
+	}
+
+	else {
+
+		if (curr_pwm != prev_pwm) {
+			sw_high_count = count;
+			prev_pwm = curr_pwm;
+			count = 0;
+		}
+
+		else {
+			count += 1;
+			}
+		}
+
+	// debugging counts through terminal statements every ~ 3 sec:
+
+/*	debug_count++;
 
 	if (debug_count == 120000) {
 
-		xil_printf("high count: %d \n", high_count);
-		xil_printf("low count: %d \n\n", low_count);
+		xil_printf("high count: %d \n", sw_high_count);
+		xil_printf("low count: %d \n\n", sw_low_count);
 		debug_count = 0;
 	}*/
-
 }
 
 /****************************************************************************/
@@ -600,13 +648,13 @@ void FIT_Handler(void) {
  
 */
 
-unsigned int calc_freq(unsigned int high, unsigned int low) {
+unsigned int calc_freq(unsigned int high, unsigned int low, bool hw_switch) {
 
 	unsigned int sum;
 	unsigned int frq;
 
 	sum = (high + 1) + (low + 1);
-	frq = (CPU_CLOCK_FREQ_HZ / sum);
+	frq = hw_switch ? (CPU_CLOCK_FREQ_HZ / sum) : (FIT_CLOCK_FREQ_HZ / sum);
 
 	return frq;
 };
