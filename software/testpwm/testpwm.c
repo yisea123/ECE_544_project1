@@ -15,11 +15,6 @@ The test program uses the rotary encoder and switches to choose a PWM frequency 
 frequency and duty cycle are displayed on line 1 of the LCD.   The program also illustrates the use of a Xilinx
 fixed interval timer module to generate a periodic interrupt for handling time-based (maybe) and/or sampled inputs/outputs
 
-NOTE TO ECE 544 STUDENTS:  
-
-This program could serve as a template for your Project 1 but may need to be customized to your system.
-In particular the #defines that map the parameters may be specific to my xparameters.h, and could be different for yours	 
-
 Configuration Notes:
 
 The minimal hardware configuration for this test is a Microblaze-based system with at least 32KB of memory,
@@ -91,7 +86,7 @@ and an instance of an axi_uartlite (used for xil_printf() console output)
 #define FIT_COUNT				(FIT_IN_CLOCK_FREQ_HZ / FIT_CLOCK_FREQ_HZ)
 #define FIT_COUNT_1MSEC			40	
 
-// PWM selected frequencies in Hz
+// PWM selected frequencies in Hertz
 
 #define PWM_FREQ_10HZ			10
 #define PWM_FREQ_100HZ			100
@@ -133,11 +128,13 @@ XTmrCtr	PWMTimerInst;						// PWM timer instance
 XGpio	GPIOInst0;							// GPIO instance - used for PWM duty & AXI Timer
 XGpio	GPIOInst1;							// GPIO instance 1 - used by hw_detect
 
+
 // The following variables are shared between non-interrupt processing and
 // interrupt processing such that they must be global(and declared volatile)
 // These variables are controlled by the FIT timer interrupt handler
 // "clkfit" toggles each time the FIT interrupt handler is called so its frequency will
 // be 1/2 FIT_CLOCK_FREQ_HZ.  timestamp increments every 1msec and is used in delay_msecs()
+
 
 volatile unsigned int	clkfit;					// clock signal is bit[0] (rightmost) of gpio 0 output port									
 volatile unsigned long	timestamp;				// timestamp since the program began
@@ -148,6 +145,7 @@ volatile unsigned int	hw_low_count; 			// low count from hw_detect on GPIO 1 (Ch
 
 unsigned  int 			sw_high_count = 0;		// high count from sw detect in FIT interrupt routine	
 unsigned  int 			sw_low_count = 0; 		// low count for sw detect in FIT interrupt routine
+
 
 // The following variables are shared between the functions in the program
 // such that they must be global
@@ -256,6 +254,8 @@ int main() {
 			
 			if (sw != oldSw) {	 
 				
+				// check the status of sw[2:0] and assign appropriate PWM output frequency
+
 				switch (sw & 0x07) {
 					
 					case 0x00:	pwm_freq = PWM_FREQ_100HZ;	break;
@@ -269,7 +269,11 @@ int main() {
 
 				}
 				
+				// check the status of sw[3] and assign to global variable
+
 				hw_switch = (sw & 0x08);
+
+				// update global variable indicating there are new changes
 
 				oldSw = sw;
 				new_perduty = true;
@@ -313,6 +317,9 @@ int main() {
 
 					update_lcd(freq, dutycycle, 1);
 
+					// check if sw[3] is high or low (HWDET / SWDET)
+					// pass functions different args depending on which mode is selected
+
 					if (hw_switch) {
 
 						detect_freq = calc_freq(hw_high_count, hw_low_count, hw_switch);
@@ -325,6 +332,7 @@ int main() {
 						detect_duty = calc_duty(sw_high_count, sw_low_count);
 					}
 
+					// update the LCD display with detected frequency & duty cycle
 
 					update_lcd(detect_freq, detect_duty, 2);
 										
@@ -355,12 +363,16 @@ int main() {
 
 	delay_msecs(5000);
 
+	// turn the lights out
+
 	PMDIO_LCD_clrd();
 	NX410_SSEG_setAllDigits(SSEGHI, CC_BLANK, CC_BLANK, CC_BLANK, CC_BLANK, DP_NONE);
 	NX410_SSEG_setAllDigits(SSEGLO, CC_BLANK, CC_BLANK, CC_BLANK, CC_BLANK, DP_NONE);
 
 	NX4IO_RGBLED_setDutyCycle(RGB1, 0, 0, 0);
 	NX4IO_RGBLED_setChnlEn(RGB1, false, false, false);
+
+	// exit gracefully
 
 	cleanup_platform();
 
@@ -530,19 +542,23 @@ void update_lcd(int freq, int dutycycle, u32 linenum) {
 	PMDIO_LCD_wrstring("    ");
 	PMDIO_LCD_setcursor(linenum, 5);
 
-	if (freq < 1000) {							// display Hz if frequency < 1Khz
+	// write the frequency 
+
+	if (freq < 1000) {								// display Hz if frequency < 1KHz
 		PMDIO_LCD_putnum(freq, 10);
 	}
 
-	else if (freq < 1000000) {										// display frequency in KHz
+	else if (freq < 1000000) {						// display Hz if frequency < 1MHz
 		PMDIO_LCD_putnum((freq / 1000), 10);
 		PMDIO_LCD_wrstring("K");
 	}
 
-	else {
+	else {											// otherwise, use the MHz suffix
 		PMDIO_LCD_putnum((freq / 1000000), 10);
 		PMDIO_LCD_wrstring("M");
 	}
+
+	// write the duty cycle
 
 	PMDIO_LCD_setcursor(linenum, 13);
 	PMDIO_LCD_wrstring("  %");
@@ -570,8 +586,8 @@ void FIT_Handler(void) {
 
 	static 	unsigned int	count = 0;					// used for sw counting high & low intervals
 
-	static 	bool		 	prev_pwm = 0;
-	static 	bool		 	curr_pwm = 0;
+	static 	bool		 	prev_pwm = 0; 				// boolean to store previous PWM value (high / low)
+	static 	bool		 	curr_pwm = 0; 				// boolean to store current PWM value (high / low)
 
 	// toggle FIT clock
 
@@ -596,6 +612,9 @@ void FIT_Handler(void) {
 	gpio_in = XGpio_DiscreteRead(&GPIOInst0, GPIO_0_INPUT_CHANNEL);
 	curr_pwm = (gpio_in & 0x00000001);
 
+	// use tri-color LED RGB1 as an indicator of PWM duty
+	// this will breakdown at higher frequencies (e.g. higher than 10kHz)
+
 	if (curr_pwm) {
 
 		NX4IO_RGBLED_setChnlEn(RGB1, true, true, true);
@@ -606,12 +625,14 @@ void FIT_Handler(void) {
 		NX4IO_RGBLED_setChnlEn(RGB1, false, false, false);
 	}
 
-	// update hardware high & low counts by reading GPIO
+	// update HWDET high & low counts by reading GPIO
 
 	hw_high_count = XGpio_DiscreteRead(&GPIOInst1, GPIO_1_HIGH_COUNT);
 	hw_low_count  = XGpio_DiscreteRead(&GPIOInst1, GPIO_1_LOW_COUNT);
 
-	// update the software high & low counts through state machine
+	// update the SWDET high & low counts through state machine
+	// this detect low-to-high and high-to-low transitions
+	// then places the count into one of two registers
 
 	if (curr_pwm) {
 
@@ -653,8 +674,10 @@ void FIT_Handler(void) {
 
 /****************************************************************************/
 
-/* calc_freq - calculates frequency given counts for high & low intervals
- 
+/* 	calc_freq - calculates frequency given counts for high & low intervals
+ 	
+ 	depending on sw[3] state, will use either CPU clock frequency or FIT Timer frequency
+ 	uses integer math only, so there may be some rounding error
 */
 
 unsigned int calc_freq(unsigned int high, unsigned int low, bool hw_switch) {
@@ -670,8 +693,9 @@ unsigned int calc_freq(unsigned int high, unsigned int low, bool hw_switch) {
 
 /****************************************************************************/
 
-/* calc_duty - calculates duty cycle given counts for high & low intervals
+/* 	calc_duty - calculates duty cycle given counts for high & low intervals
  
+  	uses integer math only, so there may be some rounding error
 */
 
 unsigned int calc_duty(unsigned int high, unsigned int low) {

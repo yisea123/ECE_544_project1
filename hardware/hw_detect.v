@@ -5,8 +5,12 @@
 // Organization: Portland State University
 //
 // Description:
-// ------------
-// Give a longer, paragraph description here.
+//
+// This hardware module provides a count of high & low interval time to the Microblaze.
+// It should be connected to 32-bit AXI GPIO (both channels configured as input).
+//
+// It implements a simple state machine to determine high-to-low and low-to-high
+// transitions, and then store a counted value to one of two registers.
 //
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -79,9 +83,9 @@ module hw_detect #(
 			else begin
 				count <= count + 1'b1; 		// otherwise, just increment count
 			end
-
+		
 		end
-
+		
 	end
 
 endmodule

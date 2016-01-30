@@ -1,4 +1,4 @@
-// n4fpga.v - Top level module for the ECE 544 Getting Started project
+// n4fpga.v - Top level module for ECE 544 Project #1
 //
 //
 // Author:	Roy Kravitz
@@ -7,10 +7,14 @@
 //
 // Description:
 // 
-// This module provides the top level for the Getting Started hardware.
-// The module assume that a PmodCLP is plugged into the JA and JB
-// expansion ports and that a PmodENC is plugged into the JD expansion 
-// port (bottom row).  
+// This module provides the top level for ECE 544 Project #1.
+// It connects a Microblaze embedded system (EMBSYS) to a
+// hardware detect module (HWDET). It also passes the 100MHz clock
+// from EMBSYS --> HWDET and handles global reset. Lastly, it makes
+// connections from EMBSYS to the Nexys4 lights, switches, and buttons.
+//
+// The module assumes that a PmodCLP is plugged into the JA and JB ports,
+// and that a PmodENC is plugged into the JD (bottom row).  
 //
 //////////////////////////////////////////////////////////////////////
 
@@ -147,8 +151,8 @@ module n4fpga (
         .reset              (sysreset),         // I [ 0 ] active-high reset signal from Nexys4
         .pwm                (pwm_out),          // I [ 0 ] PWM signal from AXI Timer in EMBSYS
 
-        .high_count         (high_count),       // O [31:0] how long PWM was 'high' --> GPIO input on Microblaze
-        .low_count          (low_count));       // O [31:0] how long PWM was 'low' --> GPIO input on Microblaze
+        .high_count         (high_count),       // O [31:0] how long PWM was 'high' --> GPIO Ch1 on Microblaze
+        .low_count          (low_count));       // O [31:0] how long PWM was 'low' --> GPIO Ch2 on Microblaze
     			
     /******************************************************************/
     /* EMBSYS instantiation                                           */
